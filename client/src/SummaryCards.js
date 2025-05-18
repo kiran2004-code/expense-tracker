@@ -6,34 +6,40 @@ function SummaryCards({ refresh }) {
   const [expense, setExpense] = useState(0);
 
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const BASE = process.env.REACT_APP_API_BASE_URL;
-      const res = await axios.get(`${BASE}/api/expenses`);
+    const fetchData = async () => {
+      try {
+        const BASE = process.env.REACT_APP_API_BASE_URL || "https://expense-tracker-7btz.onrender.com";
+        const res = await axios.get(`${BASE}/api/expenses`);
 
-      const data = res.data;
+        const data = res.data;
 
-      let incomeSum = 0;
-      let expenseSum = 0;
+        console.log("✅ SummaryCards API response:", data); // 🔍 Add this!
 
-      data.forEach((item) => {
-        if (item.type === 'Income') {
-          incomeSum += item.amount;
-        } else if (item.type === 'Expense') {
-          expenseSum += item.amount;
+        if (!Array.isArray(data)) {
+          console.error("❌ Unexpected data format from API");
+          return;
         }
-      });
 
-      setIncome(incomeSum);
-      setExpense(expenseSum);
-    } catch (err) {
-      console.error('Error loading summary data', err);
-    }
-  };
+        let incomeSum = 0;
+        let expenseSum = 0;
 
-  fetchData();
-}, [refresh]); // 👈 refresh triggers reload
+        data.forEach((item) => {
+          if (item.type === 'Income') {
+            incomeSum += item.amount;
+          } else if (item.type === 'Expense') {
+            expenseSum += item.amount;
+          }
+        });
 
+        setIncome(incomeSum);
+        setExpense(expenseSum);
+      } catch (err) {
+        console.error('❌ Error loading summary data:', err);
+      }
+    };
+
+    fetchData();
+  }, [refresh]);
 
   const balance = income - expense;
 
