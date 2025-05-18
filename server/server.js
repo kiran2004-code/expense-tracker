@@ -25,3 +25,8 @@ mongoose.connect(process.env.MONGO_URI, {
 .catch(err => console.log(err));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+app.get('/', (req, res) => {
+  res.send('🎉 Expense Tracker API is Live!');
+});
