@@ -8,7 +8,9 @@ function SummaryCards({ refresh }) {
   useEffect(() => {
   const fetchData = async () => {
     try {
-      const res = await axios.get('/api/expenses');
+      const BASE = process.env.REACT_APP_API_BASE_URL;
+      const res = await axios.get(`${BASE}/api/expenses`);
+
       const data = res.data;
 
       let incomeSum = 0;

@@ -28,7 +28,9 @@ function AddExpense({ onAdd }) {
         dataToSend.category = 'Income';
       }
 
-      await axios.post('/api/expenses', dataToSend);
+      const BASE = process.env.REACT_APP_API_BASE_URL;
+      await axios.post(`${BASE}/api/expenses`, dataToSend);
+
       
       // Call parent to trigger summary refresh 👇
       onAdd && onAdd();

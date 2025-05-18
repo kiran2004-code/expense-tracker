@@ -19,7 +19,9 @@ function ExpenseList() {
 
   const loadExpenses = async () => {
     try {
-      const res = await axios.get('/api/expenses');
+      const BASE = process.env.REACT_APP_API_BASE_URL;
+      const res = await axios.get(`${BASE}/api/expenses`);
+
       setExpenses(res.data);
     } catch (err) {
       console.error('Failed to load expenses', err);
