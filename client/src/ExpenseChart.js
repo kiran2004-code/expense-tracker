@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import {
   Chart as ChartJS,
@@ -10,6 +10,7 @@ import {
   Legend
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { BarChart2 } from 'lucide-react'; // ✅ Modern icon
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -18,27 +19,17 @@ function ExpenseChart() {
   const [mode, setMode] = useState('category'); // 'category' or 'type'
   const [chartData, setChartData] = useState({});
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (mode === 'category') buildCategoryChart();
-    else buildTypeChart();
-  }, [mode, expenses]);
-
   const loadData = async () => {
     try {
       const BASE = process.env.REACT_APP_API_BASE_URL;
-      const res = await axios.get(`${BASE}/api/expenses`);
-
+      const res = await axios.get(`${BASE}/api/expenses`, {headers: { Authorization: `Bearer ${localStorage.getItem('token')}`}});
       setExpenses(res.data);
     } catch (err) {
       console.error('Failed to load chart data', err);
     }
   };
 
-  const buildCategoryChart = () => {
+  const buildCategoryChart = useCallback(() => {
     const categoryTotals = {};
     expenses.forEach((exp) => {
       if (exp.type === 'Expense') {
@@ -57,9 +48,9 @@ function ExpenseChart() {
         }
       ]
     });
-  };
+  }, [expenses]);
 
-  const buildTypeChart = () => {
+  const buildTypeChart = useCallback(() => {
     let income = 0;
     let expense = 0;
 
@@ -74,26 +65,37 @@ function ExpenseChart() {
         {
           label: 'Income vs Expense',
           data: [income, expense],
-          backgroundColor: ['#10b981', '#ef4444'], // Green for income, red for expense
+          backgroundColor: ['#10b981', '#ef4444'],
           borderRadius: 6
         }
       ]
     });
-  };
+  }, [expenses]);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (mode === 'category') buildCategoryChart();
+    else buildTypeChart();
+  }, [mode, expenses, buildCategoryChart, buildTypeChart]);
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 mt-6">
+    <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-xl shadow-md p-6 mt-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-purple-700">
-          📊 {mode === 'category' ? 'Expenses by Category' : 'Income vs Expense'}
+        <h2 className="text-lg font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+          <BarChart2 className="text-purple-500" size={20} />
+          {mode === 'category' ? 'Expenses by Category' : 'Income vs Expense'}
         </h2>
+
         <div className="flex gap-2">
           <button
             onClick={() => setMode('category')}
             className={`px-3 py-1 rounded-md text-sm font-medium ${
               mode === 'category'
                 ? 'bg-purple-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 dark:text-white text-gray-800 hover:bg-gray-300'
             }`}
           >
             By Category
@@ -103,7 +105,7 @@ function ExpenseChart() {
             className={`px-3 py-1 rounded-md text-sm font-medium ${
               mode === 'type'
                 ? 'bg-purple-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 dark:text-white text-gray-800 hover:bg-gray-300'
             }`}
           >
             Income vs Expense
@@ -131,7 +133,7 @@ function ExpenseChart() {
           }}
         />
       ) : (
-        <p className="text-gray-500">No data available to show chart.</p>
+        <p className="text-gray-500 dark:text-gray-400">No data available to show chart.</p>
       )}
     </div>
   );

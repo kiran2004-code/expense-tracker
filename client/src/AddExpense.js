@@ -1,134 +1,153 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import {
+  Tag,
+  DollarSign,
+  FileText,
+  ArrowDownCircle,
+  ArrowUpCircle,
+} from 'lucide-react';
+import SummaryCards from './SummaryCards';
 
 function AddExpense({ onAdd }) {
-  const [formData, setFormData] = useState({
-    title: '',
-    amount: '',
-    category: '',
-    type: 'Expense'
-  });
+  const [type, setType] = useState('');
+  const [title, setTitle] = useState('');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState('Food');
+  const [status, setStatus] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(false); // For SummaryCards refresh
 
-  const [addStatus, setAddStatus] = useState(null); // null | 'success' | 'error'
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'amount' ? parseFloat(value) : value
-    }));
-  };
+  const BASE = process.env.REACT_APP_API_BASE_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const dataToSend = { ...formData };
+      const entry = {
+        title,
+        amount: parseFloat(amount),
+        category: type === 'Income' ? 'Income' : category,
+        type,
+        date: new Date(),
+      };
 
-      if (dataToSend.type === 'Income') {
-        dataToSend.category = 'Income';
-      }
-
-      const BASE = process.env.REACT_APP_API_BASE_URL;
-      await axios.post(`${BASE}/api/expenses`, dataToSend);
-
-      
-      // Call parent to trigger summary refresh 👇
-      onAdd && onAdd();
-
-      setFormData({
-        title: '',
-        amount: '',
-        category: '',
-        type: 'Expense'
+      await axios.post(`${BASE}/api/expenses`, entry, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
       });
 
-      setAddStatus('success');
-      setTimeout(() => setAddStatus(null), 3000);
+      setTitle('');
+      setAmount('');
+      setCategory('Food');
+      setType('');
+      setStatus('success');
+      setRefreshKey((prev) => !prev); // refresh SummaryCards
+      onAdd && onAdd('success');
     } catch (err) {
-      console.error('Failed to add entry', err);
-      setAddStatus('error');
-      setTimeout(() => setAddStatus(null), 3000);
+      setStatus('error');
+      onAdd && onAdd('error');
     }
+
+    setTimeout(() => setStatus(null), 2000);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block mb-1 font-medium">Title</label>
-        <input
-          type="text"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          required
-          className="w-full px-4 py-2 border rounded-md"
-        />
-      </div>
+    <div className="space-y-6">
+      {/* ✅ Summary Cards on Top */}
+      <SummaryCards refresh={refreshKey} />
 
-      <div>
-        <label className="block mb-1 font-medium">Amount (₹)</label>
-        <input
-          type="number"
-          name="amount"
-          value={formData.amount}
-          onChange={handleChange}
-          required
-          className="w-full px-4 py-2 border rounded-md"
-        />
-      </div>
-
-      <div>
-        <label className="block mb-1 font-medium">Type</label>
-        <select
-          name="type"
-          value={formData.type}
-          onChange={handleChange}
-          className="w-full px-4 py-2 border rounded-md"
-        >
-          <option value="Expense">Expense</option>
-          <option value="Income">Income</option>
-        </select>
-      </div>
-
-      {formData.type === 'Expense' && (
-        <div>
-          <label className="block mb-1 font-medium">Category</label>
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border rounded-md"
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex gap-4 justify-center">
+          <button
+            type="button"
+            onClick={() => setType('Expense')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md border transition ${
+              type === 'Expense'
+                ? 'bg-red-100 dark:bg-red-900 border-red-500 text-red-700 dark:text-red-300'
+                : 'border-gray-300 dark:border-gray-600 hover:border-red-400'
+            }`}
           >
-            <option value="">Select category</option>
-            <option value="Food">Food</option>
-            <option value="Travel">Travel</option>
-            <option value="Shopping">Shopping</option>
-            <option value="Utilities">Utilities</option>
-            <option value="Entertainment">Entertainment</option>
-            <option value="Medical">Medical</option>
-            <option value="Other">Other</option>
-          </select>
+            <ArrowDownCircle size={18} /> Expense
+          </button>
+          <button
+            type="button"
+            onClick={() => setType('Income')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md border transition ${
+              type === 'Income'
+                ? 'bg-green-100 dark:bg-green-900 border-green-500 text-green-700 dark:text-green-300'
+                : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
+            }`}
+          >
+            <ArrowUpCircle size={18} /> Income
+          </button>
         </div>
-      )}
 
-      <div>
+        {type && (
+          <>
+            <div className="relative">
+              <FileText className="absolute top-3 left-3 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+              />
+            </div>
+
+            <div className="relative">
+              <DollarSign className="absolute top-3 left-3 text-gray-400" size={18} />
+              <input
+                type="number"
+                placeholder="Amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+              />
+            </div>
+
+            {type === 'Expense' && (
+              <div className="relative">
+                <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+                >
+                  <option value="Food">Food</option>
+                  <option value="Shopping">Shopping</option>
+                  <option value="Internet">Internet</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Health">Health</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            )}
+          </>
+        )}
+
         <button
           type="submit"
-          className={`w-full font-semibold py-2 px-4 rounded-md transition text-white ${
-            addStatus === 'success'
-              ? 'bg-green-600'
-              : addStatus === 'error'
-              ? 'bg-red-600'
-              : 'bg-blue-600 hover:bg-blue-700'
+          className={`w-full py-2 rounded-md font-medium transition ${
+            status === 'success'
+              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+              : status === 'error'
+              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
         >
-          {addStatus === 'success' && '✅ Entry Added'}
-          {addStatus === 'error' && '❌ Failed to Add'}
-          {addStatus === null && 'Add Entry'}
+          {status === 'success'
+            ? 'Entry Added'
+            : status === 'error'
+            ? 'Failed to Add'
+            : 'Add Entry'}
         </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
 
