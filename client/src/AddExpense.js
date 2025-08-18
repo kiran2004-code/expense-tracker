@@ -23,7 +23,10 @@ function AddExpense({ onAdd }) {
 
   // Fetch categories (global + user custom)
   // eslint-disable-next-line react-hooks/exhaustive-deps
+// Fetch categories from backend
 useEffect(() => {
+  if (!type) return; // wait until user selects Expense/Income
+
   const fetchCategories = async () => {
     try {
       const res = await axios.get(`${BASE}/api/categories`, {
@@ -31,23 +34,26 @@ useEffect(() => {
       });
 
       const fetched = res.data
-        .filter(c => (type ? c.kind === type : c.kind === 'Expense'))
+        .filter(c => c.kind === type)
         .map(c => c.name);
 
       const unique = Array.from(new Set(fetched)).sort((a, b) => a.localeCompare(b));
-      const withOther = [...unique, 'Other'];
-
-      setCategories(withOther);
-      if (!category && withOther.length > 0) {
-        setCategory(withOther[0]);
-      }
+      setCategories([...unique, 'Other']); // add "Other" always
     } catch (err) {
       console.error('Failed to fetch categories', err);
     }
   };
 
   fetchCategories();
-}, [BASE, type, category]);
+}, [BASE, type]);
+
+// Set default category when categories update
+useEffect(() => {
+  if (!category && categories.length > 0) {
+    setCategory(categories[0]);
+  }
+}, [categories, category]);
+
  // if you want a single shared list, remove `type` from deps
 
   const handleSubmit = async (e) => {
