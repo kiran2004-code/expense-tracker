@@ -1,46 +1,43 @@
 const express = require('express');
 const router = express.Router();
-const Category = require('../models/Category');
-const { authMiddleware } = require('./auth');
+const Category = require('../models/Category'); // Adjust path
+const authMiddleware = require('./auth'); // Use fixed middleware
 
-// GET categories (global + user custom)
+// GET all categories for logged-in user
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const categories = await Category.find({
-      $or: [{ scope: 'global' }, { scope: 'custom', userId }],
-    }).sort({ name: 1 });
-    res.json(categories);
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const categories = await Category.find({ user: req.userId }).sort({ name: 1 });
+    res.status(200).json(categories);
   } catch (err) {
     console.error('Error fetching categories:', err);
-    res.status(500).json({ error: 'Server error while fetching categories' });
+    res.status(500).json({ error: 'Failed to fetch categories' });
   }
 });
 
-// POST add a custom category
+// POST add new category
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { name, kind = 'Expense' } = req.body;
+    const { name, type } = req.body;
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Category name is required' });
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const cat = await Category.create({
-      name: name.trim(),
-      scope: 'custom',
-      userId,
-      kind,
+    const category = new Category({
+      user: req.userId,
+      name,
+      type,
     });
 
-    res.json(cat);
+    await category.save();
+    res.status(201).json(category);
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(409).json({ error: 'Category already exists' });
-    }
-    console.error('Error creating category:', err);
-    res.status(500).json({ error: 'Server error while creating category' });
+    console.error('Error adding category:', err);
+    res.status(500).json({ error: 'Failed to add category' });
   }
 });
 

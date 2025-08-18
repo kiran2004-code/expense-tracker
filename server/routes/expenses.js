@@ -1,43 +1,45 @@
 const express = require('express');
 const router = express.Router();
-const Expense = require('../models/Expense');
-const { authMiddleware } = require('./auth');
+const Expense = require('../models/Expense'); // Adjust path
+const authMiddleware = require('./auth'); // Use fixed middleware
 
 // GET all expenses for logged-in user
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const expenses = await Expense.find({ userId }).sort({ date: -1 });
-    res.json(expenses);
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const expenses = await Expense.find({ user: req.userId }).sort({ createdAt: -1 });
+    res.status(200).json(expenses);
   } catch (err) {
     console.error('Error fetching expenses:', err);
-    res.status(500).json({ error: 'Server error while fetching expenses' });
+    res.status(500).json({ error: 'Failed to fetch expenses' });
   }
 });
 
-// POST add a new expense/income
+// POST add new expense
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { title, amount, category, type, date } = req.body;
+    const { title, amount, category, type } = req.body;
 
-    if (!title || !amount || !type) {
-      return res.status(400).json({ error: 'Title, amount, and type are required' });
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const entry = await Expense.create({
-      title: title.trim(),
+    const expense = new Expense({
+      user: req.userId,
+      title,
       amount,
       category,
       type,
-      date: date || new Date(),
-      userId,
     });
 
-    res.json(entry);
+    await expense.save();
+    res.status(201).json(expense);
   } catch (err) {
-    console.error('Error creating expense:', err);
-    res.status(500).json({ error: 'Server error while creating expense' });
+    console.error('Error adding expense:', err);
+    res.status(500).json({ error: 'Failed to add expense' });
   }
 });
 

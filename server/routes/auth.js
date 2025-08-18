@@ -1,21 +1,35 @@
 const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const User = require('../models/User'); // Adjust path if needed
+const router = express.Router();
 
-// JWT Auth Middleware
-const authMiddleware = (req, res, next) => {
+// =========================
+// AUTH MIDDLEWARE
+// =========================
+const authMiddleware = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const authHeader = req.headers.authorization; // Expect 'Bearer <token>'
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
 
-    if (!token) return res.status(401).json({ error: 'No token provided' });
+    const token = authHeader.split(' ')[1]; // Extract token
+    if (!token) {
+      return res.status(401).json({ error: 'Token missing' });
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded?.userId) return res.status(401).json({ error: 'Invalid token payload' });
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
 
-    req.userId = decoded.userId;
+    req.userId = decoded.userId; // Set userId for other routes
+
+    // Fetch user theme preference
+    const user = await User.findById(req.userId).select('theme');
+    req.userTheme = user ? user.theme || 'light' : 'light';
+
     next();
   } catch (err) {
     console.error('Auth Middleware Error:', err);
@@ -23,80 +37,107 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// Register
+// =========================
+// REGISTER USER
+// =========================
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: 'All fields are required' });
+    const { name, email, password, theme } = req.body;
 
+    // Check if user exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, email, password: hashedPassword, theme: 'light' });
-    await newUser.save();
 
-    res.status(201).json({ message: 'User registered successfully' });
+    // Create new user
+    const user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      theme: theme || 'light',
+    });
+
+    await user.save();
+
+    // Generate JWT
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    res.status(201).json({
+      token,
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      theme: user.theme,
+    });
   } catch (err) {
     console.error('Register Error:', err);
-    res.status(500).json({ message: err.message || 'Server error' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Login
+// =========================
+// LOGIN USER
+// =========================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
 
+    // Find user
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
 
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    // Generate JWT
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
     res.status(200).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, theme: user.theme || 'light' },
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      theme: user.theme || 'light',
     });
   } catch (err) {
     console.error('Login Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Update user theme
+// =========================
+// UPDATE USER THEME
+// =========================
 router.put('/theme', authMiddleware, async (req, res) => {
   try {
     const { theme } = req.body;
-    if (!theme) return res.status(400).json({ message: 'Theme is required' });
-
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    user.theme = theme;
-    await user.save();
-
-    res.json({ message: 'Theme updated successfully', theme });
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { theme },
+      { new: true, select: 'theme' }
+    );
+    res.status(200).json({ theme: user.theme });
   } catch (err) {
     console.error('Update Theme Error:', err);
-    res.status(500).json({ message: 'Failed to update theme' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get user info
-router.get('/user', authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    res.json({ id: user._id, name: user.name, email: user.email, theme: user.theme || 'light' });
-  } catch (err) {
-    console.error('Get User Error:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-module.exports = router;
-module.exports.authMiddleware = authMiddleware;
+// =========================
+// EXPORTS
+// =========================
+module.exports = authMiddleware; // For protecting routes
+module.exports.router = router;  // For /auth routes
