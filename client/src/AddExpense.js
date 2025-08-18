@@ -10,64 +10,57 @@ import {
 import SummaryCards from './SummaryCards';
 
 function AddExpense({ onAdd }) {
-  const [type, setType] = useState('');                // 'Expense' or 'Income'
+  const [type, setType] = useState('');                
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');        // selected category name
-  const [categories, setCategories] = useState([]);    // array of names
+  const [category, setCategory] = useState('');        
+  const [categories, setCategories] = useState([]);    
   const [customCategory, setCustomCategory] = useState('');
   const [status, setStatus] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(false); // For SummaryCards refresh
+  const [fetchError, setFetchError] = useState(null);  // new state for fetch errors
+  const [refreshKey, setRefreshKey] = useState(false); 
 
   const BASE = process.env.REACT_APP_API_BASE_URL;
 
-  // Fetch categories (global + user custom)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-// Fetch categories from backend
-// Fetch categories when type changes or on first load
-useEffect(() => {
-  const fetchCategories = async () => {
-    if (!BASE) return;
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      if (!BASE) return;
 
-    try {
-      const res = await axios.get(`${BASE}/api/categories`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      try {
+        const res = await axios.get(`${BASE}/api/categories`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
 
-      // Filter by type only if type is set, otherwise default to 'Expense'
-      const filtered = res.data
-        .filter(c => c.kind === (type || 'Expense'))
-        .map(c => c.name);
+        const filtered = res.data
+          .filter(c => c.kind === (type || 'Expense'))
+          .map(c => c.name);
 
-      const unique = Array.from(new Set(filtered)).sort((a, b) => a.localeCompare(b));
-      setCategories([...unique, 'Other']);
-    } catch (err) {
-      console.error('Failed to fetch categories', err);
+        const unique = Array.from(new Set(filtered)).sort((a, b) => a.localeCompare(b));
+        setCategories([...unique, 'Other']);
+        setFetchError(null); // clear previous errors
+      } catch (err) {
+        console.error('Failed to fetch categories', err);
+        setFetchError('Failed to load categories. Please try again.');
+        setCategories(['Other']); // fallback
+      }
+    };
+
+    fetchCategories();
+  }, [BASE, type]);
+
+  // Set first category automatically
+  useEffect(() => {
+    if (!category && categories.length > 0) {
+      setCategory(categories[0]);
     }
-  };
-
-  fetchCategories();
-}, [BASE, type]);
-
-// Set first category automatically
-useEffect(() => {
-  if (!category && categories.length > 0) {
-    setCategory(categories[0]);
-  }
-}, [categories, category]);
-
-
-// Set default category when categories update
-
-
- // if you want a single shared list, remove `type` from deps
+  }, [categories, category]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     let finalCategory = category;
 
-    // If "Other" selected, create a custom category for this user
     if (category === 'Other') {
       const name = customCategory.trim();
       if (!name) {
@@ -83,10 +76,8 @@ useEffect(() => {
           { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
         );
 
-        // Update dropdown immediately
         setCategories(prev => {
           const withoutOther = prev.filter(c => c !== 'Other');
-          // avoid duplicates
           const set = new Set([...withoutOther, name]);
           return [...Array.from(set).sort((a, b) => a.localeCompare(b)), 'Other'];
         });
@@ -104,7 +95,7 @@ useEffect(() => {
       const entry = {
         title,
         amount: parseFloat(amount),
-        category: type === 'Income' ? 'Income' : finalCategory, // keep as you had; or use finalCategory for both if you want income categories too
+        category: type === 'Income' ? 'Income' : finalCategory,
         type,
         date: new Date(),
       };
@@ -113,12 +104,11 @@ useEffect(() => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
 
-      // reset
       setTitle('');
       setAmount('');
-      setCategory('');           // let useEffect select first again
+      setCategory('');
       setCustomCategory('');
-      setType('');               // user re-chooses Income/Expense
+      setType('');
       setStatus('success');
       setRefreshKey(prev => !prev);
       onAdd && onAdd('success');
@@ -193,6 +183,9 @@ useEffect(() => {
             {/* Category */}
             {type === 'Expense' && (
               <div className="space-y-2">
+                {fetchError && (
+                  <p className="text-red-600 dark:text-red-400 text-sm">{fetchError}</p>
+                )}
                 <div className="relative">
                   <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
                   <select
@@ -206,7 +199,7 @@ useEffect(() => {
                   </select>
                 </div>
 
-                {/* If "Other", show custom input */}
+                {/* Custom category input */}
                 {category === 'Other' && (
                   <input
                     type="text"

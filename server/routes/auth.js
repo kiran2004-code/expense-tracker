@@ -1,16 +1,28 @@
-// ✅ Updated Backend Route in auth.js
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// JWT Auth Middleware
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: decoded.userId };
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
 // Register
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
@@ -20,7 +32,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
-    console.error("\u274C Register Error:", err);
+    console.error('Register Error:', err);
     res.status(500).json({ message: err.message || 'Server error' });
   }
 });
@@ -29,65 +41,43 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const token = jwt.sign({ userId: user._id }, 'your_jwt_secret', { expiresIn: '1d' });
-
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
     res.status(200).json({ token, user: { id: user._id, name: user.name, email: user.email, theme: user.theme } });
   } catch (err) {
+    console.error('Login Error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
 // Update Theme
-// PUT /api/auth/theme
-router.put('/theme', async (req, res) => {
-  const { userId, theme } = req.body;
+router.put('/theme', authMiddleware, async (req, res) => {
+  const { theme } = req.body;
   try {
-    await User.findByIdAndUpdate(userId, { theme });
+    await User.findByIdAndUpdate(req.user.id, { theme });
     res.json({ message: 'Theme updated' });
   } catch (err) {
+    console.error('Theme update error:', err);
     res.status(500).json({ message: 'Failed to update theme' });
   }
 });
 
-
-module.exports = function (req, res, next) {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'No token' });
-
+// Get user info by token
+router.get('/user', authMiddleware, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.id }; // adapt if your payload differs
-    next();
-  } catch (e) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
-
-
-
-// ✅ Get user info by token
-router.get('/user', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, 'your_jwt_secret');
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-
     res.json({ name: user.name, email: user.email, theme: user.theme || 'light' });
   } catch (err) {
-    res.status(401).json({ message: 'Invalid token' });
+    console.error('Get user error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 module.exports = router;
+module.exports.authMiddleware = authMiddleware;

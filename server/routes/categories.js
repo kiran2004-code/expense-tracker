@@ -1,27 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const Category = require('../models/Category');
-const auth = require('./auth');  // since it's in the same routes folder
+const { authMiddleware } = require('./auth');
 
-// GET categories (global + this user's custom)
-router.get('/', auth, async (req, res) => {
+// GET categories (global + user custom)
+router.get('/', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     const categories = await Category.find({
-    $or: [{ scope: 'global' }, { scope: 'custom', userId }],
+      $or: [{ scope: 'global' }, { scope: 'custom', userId }],
     }).sort({ name: 1 });
-
     res.json(categories);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching categories:', err);
+    res.status(500).json({ error: 'Server error while fetching categories' });
   }
 });
 
-// POST add a custom category for this user
-router.post('/', auth, async (req, res) => {
+// POST add a custom category
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     const { name, kind = 'Expense' } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Category name is required' });
+    }
 
     const cat = await Category.create({
       name: name.trim(),
@@ -32,11 +36,11 @@ router.post('/', auth, async (req, res) => {
 
     res.json(cat);
   } catch (err) {
-    // handle dup key nicely
     if (err.code === 11000) {
       return res.status(409).json({ error: 'Category already exists' });
     }
-    res.status(500).json({ error: err.message });
+    console.error('Error creating category:', err);
+    res.status(500).json({ error: 'Server error while creating category' });
   }
 });
 

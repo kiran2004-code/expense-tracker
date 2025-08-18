@@ -1,50 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const Expense = require('../models/Expense');
-const jwt = require('jsonwebtoken');
+const { authMiddleware } = require('./auth');
 
-// Middleware to extract userId from token
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, 'your_jwt_secret', (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.userId = user.userId;
-    next();
-  });
-}
-
-// Add Expense
-router.post('/', authenticateToken, async (req, res) => {
+// GET all expenses for logged-in user
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const newExpense = new Expense({ ...req.body, userId: req.userId });
-    const savedExpense = await newExpense.save();
-    res.json(savedExpense);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get All Expenses for User
-router.get('/', authenticateToken, async (req, res) => {
-  try {
-    const expenses = await Expense.find({ userId: req.userId }).sort({ date: -1 });
+    const userId = req.user.id;
+    const expenses = await Expense.find({ userId }).sort({ date: -1 });
     res.json(expenses);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error fetching expenses:', err);
+    res.status(500).json({ error: 'Server error while fetching expenses' });
   }
 });
 
-// Delete Expense by ID (and make sure it belongs to the user)
-router.delete('/:id', authenticateToken, async (req, res) => {
+// POST add a new expense/income
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const expense = await Expense.findOneAndDelete({ _id: req.params.id, userId: req.userId });
-    if (!expense) return res.status(404).json({ message: 'Expense not found' });
-    res.json(expense);
+    const userId = req.user.id;
+    const { title, amount, category, type, date } = req.body;
+
+    if (!title || !amount || !type) {
+      return res.status(400).json({ error: 'Title, amount, and type are required' });
+    }
+
+    const entry = await Expense.create({
+      title: title.trim(),
+      amount,
+      category,
+      type,
+      date: date || new Date(),
+      userId,
+    });
+
+    res.json(entry);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error creating expense:', err);
+    res.status(500).json({ error: 'Server error while creating expense' });
   }
 });
 
