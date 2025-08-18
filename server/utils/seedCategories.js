@@ -1,7 +1,5 @@
-require('dotenv').config(); // load .env
-const mongoose = require('mongoose');
-const Category = require('../models/Category'); // adjust path
-
+// utils/seedCategories.js
+const Category = require('../models/Category');
 
 const DEFAULTS = [
   'Food', 'Shopping', 'Transport', 'Internet',
@@ -16,13 +14,6 @@ async function seedCategories() {
     }
   }
   console.log('✅ Default global categories seeded');
-  mongoose.disconnect();
 }
 
-// Connect to DB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => seedCategories())
-.catch(err => console.log(err));
+module.exports = { seedCategories };
