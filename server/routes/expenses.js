@@ -1,34 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const Expense = require('../models/Expense'); // Adjust path
-const authMiddleware = require('./auth'); // Use fixed middleware
+const Expense = require('../models/Expense');
+const authMiddleware = require('./auth');
 
-// GET all expenses for logged-in user
+// Get all expenses for the logged-in user
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const expenses = await Expense.find({ user: req.userId }).sort({ createdAt: -1 });
-    res.status(200).json(expenses);
+    const expenses = await Expense.find({ userId: req.userId }).sort({ createdAt: -1 });
+    res.json(expenses);
   } catch (err) {
     console.error('Error fetching expenses:', err);
-    res.status(500).json({ error: 'Failed to fetch expenses' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// POST add new expense
+// Add a new expense
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { title, amount, category, type } = req.body;
 
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!title || !amount || !category || !type) {
+      return res.status(400).json({ error: 'All fields are required' });
     }
 
     const expense = new Expense({
-      user: req.userId,
+      userId: req.userId, // Make sure this matches your Expense schema
       title,
       amount,
       category,
@@ -39,7 +35,19 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(201).json(expense);
   } catch (err) {
     console.error('Error adding expense:', err);
-    res.status(500).json({ error: 'Failed to add expense' });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete an expense
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const expense = await Expense.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    res.json({ message: 'Expense deleted', expense });
+  } catch (err) {
+    console.error('Error deleting expense:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

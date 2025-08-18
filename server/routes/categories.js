@@ -1,43 +1,36 @@
 const express = require('express');
 const router = express.Router();
-const Category = require('../models/Category'); // Adjust path
-const authMiddleware = require('./auth'); // Use fixed middleware
+const Category = require('../models/Category');
+const authMiddleware = require('./auth');
 
-// GET all categories for logged-in user
+// Get all categories for the logged-in user
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const categories = await Category.find({ user: req.userId }).sort({ name: 1 });
-    res.status(200).json(categories);
+    const categories = await Category.find({ user: req.userId });
+    res.json(categories);
   } catch (err) {
     console.error('Error fetching categories:', err);
-    res.status(500).json({ error: 'Failed to fetch categories' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// POST add new category
+// Add a new category
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, type } = req.body;
+    const { name } = req.body;
 
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    if (!name) return res.status(400).json({ error: 'Name is required' });
 
-    const category = new Category({
-      user: req.userId,
-      name,
-      type,
-    });
+    // Check for duplicates
+    const existing = await Category.findOne({ user: req.userId, name });
+    if (existing) return res.status(400).json({ error: 'Category already exists' });
 
+    const category = new Category({ name, user: req.userId });
     await category.save();
     res.status(201).json(category);
   } catch (err) {
     console.error('Error adding category:', err);
-    res.status(500).json({ error: 'Failed to add category' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

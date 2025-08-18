@@ -1,143 +1,85 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User'); // Adjust path if needed
 const router = express.Router();
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 
-// =========================
-// AUTH MIDDLEWARE
-// =========================
+// Middleware to protect routes and attach userId & theme
 const authMiddleware = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization; // Expect 'Bearer <token>'
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const token = authHeader.split(' ')[1]; // Extract token
-    if (!token) {
-      return res.status(401).json({ error: 'Token missing' });
-    }
+    const token = req.headers.authorization?.split(' ')[1]; // Bearer token
+    if (!token) return res.status(401).json({ error: 'Unauthorized: No token' });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded || !decoded.userId) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
+    if (!decoded || !decoded.id) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
 
-    req.userId = decoded.userId; // Set userId for other routes
+    const user = await User.findById(decoded.id).select('theme');
+    if (!user) return res.status(401).json({ error: 'Unauthorized: User not found' });
 
-    // Fetch user theme preference
-    const user = await User.findById(req.userId).select('theme');
-    req.userTheme = user ? user.theme || 'light' : 'light';
-
+    req.userId = user._id.toString();
+    req.theme = user.theme || 'light'; // Default theme if not set
     next();
   } catch (err) {
-    console.error('Auth Middleware Error:', err);
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    console.error('Auth middleware error:', err);
+    return res.status(401).json({ error: 'Unauthorized: Token error' });
   }
 };
 
-// =========================
-// REGISTER USER
-// =========================
+// Register a new user
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, theme } = req.body;
 
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
 
-    // Create new user
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-      theme: theme || 'light',
-    });
-
+    const user = new User({ name, email, password, theme: theme || 'light' });
     await user.save();
 
-    // Generate JWT
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    });
-
-    res.status(201).json({
-      token,
-      userId: user._id,
-      name: user.name,
-      email: user.email,
-      theme: user.theme,
-    });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ token, theme: user.theme });
   } catch (err) {
-    console.error('Register Error:', err);
+    console.error('Error registering user:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// =========================
-// LOGIN USER
-// =========================
+// Login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
-    // Find user
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
+    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-    // Generate JWT
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    });
-
-    res.status(200).json({
-      token,
-      userId: user._id,
-      name: user.name,
-      email: user.email,
-      theme: user.theme || 'light',
-    });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, theme: user.theme });
   } catch (err) {
-    console.error('Login Error:', err);
+    console.error('Error logging in:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// =========================
-// UPDATE USER THEME
-// =========================
-router.put('/theme', authMiddleware, async (req, res) => {
+// Update theme
+router.patch('/theme', authMiddleware, async (req, res) => {
   try {
     const { theme } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      { theme },
-      { new: true, select: 'theme' }
-    );
-    res.status(200).json({ theme: user.theme });
+    if (!theme) return res.status(400).json({ error: 'Theme is required' });
+
+    const user = await User.findByIdAndUpdate(req.userId, { theme }, { new: true });
+    res.json({ theme: user.theme });
   } catch (err) {
-    console.error('Update Theme Error:', err);
+    console.error('Error updating theme:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// =========================
-// EXPORTS
-// =========================
-module.exports = authMiddleware; // For protecting routes
-module.exports.router = router;  // For /auth routes
+module.exports = authMiddleware;
+module.exports.authRoutes = router;
