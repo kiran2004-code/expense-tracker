@@ -10,91 +10,107 @@ import {
 import SummaryCards from './SummaryCards';
 
 function AddExpense({ onAdd }) {
-  const [type, setType] = useState('');
+  const [type, setType] = useState('');                // 'Expense' or 'Income'
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [categories, setCategories] = useState([]);
-
+  const [category, setCategory] = useState('');        // selected category name
+  const [categories, setCategories] = useState([]);    // array of names
   const [customCategory, setCustomCategory] = useState('');
   const [status, setStatus] = useState(null);
   const [refreshKey, setRefreshKey] = useState(false); // For SummaryCards refresh
 
   const BASE = process.env.REACT_APP_API_BASE_URL;
+
+  // Fetch categories (global + user custom)
   useEffect(() => {
-  const fetchCategories = async () => {
-    try {
-      const res = await axios.get(`${BASE}/api/categories`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      // Keep categories sorted and always push "Other" at last
-      const fetched = res.data.map(c => c.name);
-      const withOther = [...fetched, 'Other'];
-      setCategories(withOther);
-      if (withOther.length > 0) {
-  setCategory(withOther[0]); // auto-select first
-}
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${BASE}/api/categories`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        // Backend returns objects; we only need names for dropdown
+        const fetched = res.data
+          .filter(c => (type ? c.kind === type : c.kind === 'Expense')) // if you want separate lists by type
+          .map(c => c.name);
 
-      setCategories([...fetched, 'Other']);
-    } catch (err) {
-      console.error("Failed to fetch categories", err);
-    }
-  };
+        const unique = Array.from(new Set(fetched)).sort((a, b) => a.localeCompare(b));
+        const withOther = [...unique, 'Other'];
 
-  fetchCategories();
-}, [BASE]);
+        setCategories(withOther);
+        if (!category && withOther.length > 0) {
+          setCategory(withOther[0]); // auto-select first
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories', err);
+      }
+    };
 
+    fetchCategories();
+    // refetch when type changes so you can later support Income categories
+  }, [BASE, type]); // if you want a single shared list, remove `type` from deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     let finalCategory = category;
-    if (category === 'Other' && customCategory.trim() !== '') {
-  finalCategory = customCategory.trim();
 
-  // Save new category to DB if not already saved
-  try {
-    await axios.post(`${BASE}/api/categories`, 
-      { name: finalCategory, type: "Expense" }, 
-      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-    );
-    setCategories(prev => {
-        const withoutOther = prev.filter(c => c !== 'Other');
-        return [...withoutOther, finalCategory, 'Other'];
-      });
-      setCategory(finalCategory);
-  } catch (err) {
-    console.error("Failed to save new category", err);
-  }
-}
+    // If "Other" selected, create a custom category for this user
+    if (category === 'Other') {
+      const name = customCategory.trim();
+      if (!name) {
+        setStatus('error');
+        setTimeout(() => setStatus(null), 1500);
+        return;
+      }
 
+      try {
+        await axios.post(
+          `${BASE}/api/categories`,
+          { name, kind: type || 'Expense' },
+          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        );
+
+        // Update dropdown immediately
+        setCategories(prev => {
+          const withoutOther = prev.filter(c => c !== 'Other');
+          // avoid duplicates
+          const set = new Set([...withoutOther, name]);
+          return [...Array.from(set).sort((a, b) => a.localeCompare(b)), 'Other'];
+        });
+        setCategory(name);
+        finalCategory = name;
+      } catch (err) {
+        console.error('Failed to save new category', err);
+        setStatus('error');
+        setTimeout(() => setStatus(null), 1500);
+        return;
+      }
+    }
 
     try {
       const entry = {
         title,
         amount: parseFloat(amount),
-        category: type === 'Income' ? 'Income' : finalCategory,
+        category: type === 'Income' ? 'Income' : finalCategory, // keep as you had; or use finalCategory for both if you want income categories too
         type,
         date: new Date(),
       };
 
       await axios.post(`${BASE}/api/expenses`, entry, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
 
+      // reset
       setTitle('');
       setAmount('');
-      setCategory('');
+      setCategory('');           // let useEffect select first again
       setCustomCategory('');
-      setType('');
+      setType('');               // user re-chooses Income/Expense
       setStatus('success');
-      setRefreshKey((prev) => !prev); // refresh SummaryCards
+      setRefreshKey(prev => !prev);
       onAdd && onAdd('success');
     } catch (err) {
+      console.error(err);
       setStatus('error');
       onAdd && onAdd('error');
     }
@@ -104,7 +120,6 @@ function AddExpense({ onAdd }) {
 
   return (
     <div className="space-y-6">
-      {/* ✅ Summary Cards on Top */}
       <SummaryCards refresh={refreshKey} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -136,7 +151,7 @@ function AddExpense({ onAdd }) {
 
         {type && (
           <>
-            {/* Title Input */}
+            {/* Title */}
             <div className="relative">
               <FileText className="absolute top-3 left-3 text-gray-400" size={18} />
               <input
@@ -149,7 +164,7 @@ function AddExpense({ onAdd }) {
               />
             </div>
 
-            {/* Amount Input */}
+            {/* Amount */}
             <div className="relative">
               <DollarSign className="absolute top-3 left-3 text-gray-400" size={18} />
               <input
@@ -162,7 +177,7 @@ function AddExpense({ onAdd }) {
               />
             </div>
 
-            {/* Category Select */}
+            {/* Category */}
             {type === 'Expense' && (
               <div className="space-y-2">
                 <div className="relative">
@@ -173,9 +188,7 @@ function AddExpense({ onAdd }) {
                     className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
                   >
                     {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
+                      <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
                 </div>
@@ -195,7 +208,7 @@ function AddExpense({ onAdd }) {
           </>
         )}
 
-        {/* Submit Button */}
+        {/* Submit */}
         <button
           type="submit"
           className={`w-full py-2 rounded-md font-medium transition ${

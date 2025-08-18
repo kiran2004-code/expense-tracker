@@ -57,6 +57,22 @@ router.put('/theme', async (req, res) => {
 });
 
 
+module.exports = function (req, res, next) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'No token' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: decoded.id }; // adapt if your payload differs
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+
+
 // ✅ Get user info by token
 router.get('/user', async (req, res) => {
   const authHeader = req.headers.authorization;

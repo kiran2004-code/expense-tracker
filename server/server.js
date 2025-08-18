@@ -5,16 +5,14 @@ require('dotenv').config();
 
 const expenseRoutes = require('./routes/expenses');
 const authRoutes = require('./routes/auth');
+const categoryRoutes = require('./routes/categories'); // Category routes
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const categoryRoutes = require('./routes/categories');
-app.use('/api/categories', categoryRoutes);
-
-// ✅ CORS Middleware with Vercel frontend
+// ✅ Middleware
 app.use(cors({
-  origin: 'https://personal-expensetrack.netlify.app', // Replace this!
+  origin: 'https://personal-expensetrack.netlify.app', // frontend Netlify URL
   credentials: true
 }));
 
@@ -23,6 +21,7 @@ app.use(express.json());
 // ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/categories', categoryRoutes); // move here ✅
 
 // ✅ MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {

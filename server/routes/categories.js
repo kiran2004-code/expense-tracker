@@ -1,24 +1,40 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const Category = require("../models/Category");
+const Category = require('../models/Category');
+const auth = require('../middleware/auth');
 
-// ➕ Add new category
-router.post("/", async (req, res) => {
+// GET categories (global + this user's custom)
+router.get('/', auth, async (req, res) => {
   try {
-    const category = new Category(req.body);
-    await category.save();
-    res.json(category);
+    const userId = req.user.id;
+    const categories = await Category.find({
+      $or: [{ scope: 'global' }, { scope: 'custom', userId }],
+    }).sort({ name: 1 });
+    res.json(categories);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// 📋 Get all categories
-router.get("/", async (req, res) => {
+// POST add a custom category for this user
+router.post('/', auth, async (req, res) => {
   try {
-    const categories = await Category.find();
-    res.json(categories);
+    const userId = req.user.id;
+    const { name, kind = 'Expense' } = req.body;
+
+    const cat = await Category.create({
+      name: name.trim(),
+      scope: 'custom',
+      userId,
+      kind,
+    });
+
+    res.json(cat);
   } catch (err) {
+    // handle dup key nicely
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'Category already exists' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
