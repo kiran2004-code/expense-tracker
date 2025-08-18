@@ -55,17 +55,19 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Update Theme
+// PUT /api/auth/theme
+// Updated theme route
 router.put('/theme', authMiddleware, async (req, res) => {
   const { theme } = req.body;
   try {
     await User.findByIdAndUpdate(req.user.id, { theme });
     res.json({ message: 'Theme updated' });
   } catch (err) {
-    console.error('Theme update error:', err);
     res.status(500).json({ message: 'Failed to update theme' });
   }
 });
+
+
 
 // Get user info by token
 router.get('/user', authMiddleware, async (req, res) => {

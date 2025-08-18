@@ -10,38 +10,39 @@ import {
 import SummaryCards from './SummaryCards';
 
 function AddExpense({ onAdd }) {
-  const [type, setType] = useState('');                
+  const [type, setType] = useState('');                // 'Expense' or 'Income'
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');        
-  const [categories, setCategories] = useState([]);    
+  const [category, setCategory] = useState('');        // selected category name
+  const [categories, setCategories] = useState([]);    // array of names
   const [customCategory, setCustomCategory] = useState('');
   const [status, setStatus] = useState(null);
-  const [fetchError, setFetchError] = useState(null);  // new state for fetch errors
-  const [refreshKey, setRefreshKey] = useState(false); 
+  const [refreshKey, setRefreshKey] = useState(false); // For SummaryCards refresh
+  const [fetchError, setFetchError] = useState('');
 
   const BASE = process.env.REACT_APP_API_BASE_URL;
 
-  // Fetch categories
+  // Fetch categories from backend
   useEffect(() => {
-    const fetchCategories = async () => {
-      if (!BASE) return;
+    if (!BASE || !type) return;
 
+    const fetchCategories = async () => {
       try {
         const res = await axios.get(`${BASE}/api/categories`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
 
+        // Filter by type (Expense/Income)
         const filtered = res.data
-          .filter(c => c.kind === (type || 'Expense'))
+          .filter(c => c.kind === type)
           .map(c => c.name);
 
         const unique = Array.from(new Set(filtered)).sort((a, b) => a.localeCompare(b));
         setCategories([...unique, 'Other']);
-        setFetchError(null); // clear previous errors
+        setFetchError('');
       } catch (err) {
         console.error('Failed to fetch categories', err);
-        setFetchError('Failed to load categories. Please try again.');
+        setFetchError('Failed to load categories. Try refreshing.');
         setCategories(['Other']); // fallback
       }
     };
@@ -61,6 +62,7 @@ function AddExpense({ onAdd }) {
 
     let finalCategory = category;
 
+    // If "Other" selected, create a custom category for this type
     if (category === 'Other') {
       const name = customCategory.trim();
       if (!name) {
@@ -72,15 +74,17 @@ function AddExpense({ onAdd }) {
       try {
         await axios.post(
           `${BASE}/api/categories`,
-          { name, kind: type || 'Expense' },
+          { name, kind: type },
           { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
         );
 
+        // Update dropdown immediately
         setCategories(prev => {
           const withoutOther = prev.filter(c => c !== 'Other');
           const set = new Set([...withoutOther, name]);
           return [...Array.from(set).sort((a, b) => a.localeCompare(b)), 'Other'];
         });
+
         setCategory(name);
         finalCategory = name;
       } catch (err) {
@@ -95,7 +99,7 @@ function AddExpense({ onAdd }) {
       const entry = {
         title,
         amount: parseFloat(amount),
-        category: type === 'Income' ? 'Income' : finalCategory,
+        category: finalCategory,
         type,
         date: new Date(),
       };
@@ -104,6 +108,7 @@ function AddExpense({ onAdd }) {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
 
+      // Reset form
       setTitle('');
       setAmount('');
       setCategory('');
@@ -181,36 +186,32 @@ function AddExpense({ onAdd }) {
             </div>
 
             {/* Category */}
-            {type === 'Expense' && (
-              <div className="space-y-2">
-                {fetchError && (
-                  <p className="text-red-600 dark:text-red-400 text-sm">{fetchError}</p>
-                )}
-                <div className="relative">
-                  <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Custom category input */}
-                {category === 'Other' && (
-                  <input
-                    type="text"
-                    placeholder="Enter custom category"
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    className="w-full pl-3 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
-                  />
-                )}
+            <div className="space-y-2">
+              <div className="relative">
+                <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
-            )}
+
+              {category === 'Other' && (
+                <input
+                  type="text"
+                  placeholder="Enter custom category"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  className="w-full pl-3 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+                />
+              )}
+
+              {fetchError && <p className="text-red-500 text-sm">{fetchError}</p>}
+            </div>
           </>
         )}
 
