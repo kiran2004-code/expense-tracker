@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 
 // ✅ CORS Middleware with Vercel frontend
 app.use(cors({
-  origin: 'https://expense-tracker-ai-eight.vercel.app', // Replace this!
+  origin: 'https://personal-expensetrack.netlify.app', // Replace this!
   credentials: true
 }));
 
