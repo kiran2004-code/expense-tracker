@@ -9,6 +9,9 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const categoryRoutes = require('./routes/categories');
+app.use('/api/categories', categoryRoutes);
+
 // ✅ CORS Middleware with Vercel frontend
 app.use(cors({
   origin: 'https://personal-expensetrack.netlify.app', // Replace this!
