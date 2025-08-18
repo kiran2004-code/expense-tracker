@@ -22,32 +22,33 @@ function AddExpense({ onAdd }) {
   const BASE = process.env.REACT_APP_API_BASE_URL;
 
   // Fetch categories (global + user custom)
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await axios.get(`${BASE}/api/categories`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        // Backend returns objects; we only need names for dropdown
-        const fetched = res.data
-          .filter(c => (type ? c.kind === type : c.kind === 'Expense')) // if you want separate lists by type
-          .map(c => c.name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(`${BASE}/api/categories`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
 
-        const unique = Array.from(new Set(fetched)).sort((a, b) => a.localeCompare(b));
-        const withOther = [...unique, 'Other'];
+      const fetched = res.data
+        .filter(c => (type ? c.kind === type : c.kind === 'Expense'))
+        .map(c => c.name);
 
-        setCategories(withOther);
-        if (!category && withOther.length > 0) {
-          setCategory(withOther[0]); // auto-select first
-        }
-      } catch (err) {
-        console.error('Failed to fetch categories', err);
+      const unique = Array.from(new Set(fetched)).sort((a, b) => a.localeCompare(b));
+      const withOther = [...unique, 'Other'];
+
+      setCategories(withOther);
+      if (!category && withOther.length > 0) {
+        setCategory(withOther[0]);
       }
-    };
+    } catch (err) {
+      console.error('Failed to fetch categories', err);
+    }
+  };
 
-    fetchCategories();
-    // refetch when type changes so you can later support Income categories
-  }, [BASE, type]); // if you want a single shared list, remove `type` from deps
+  fetchCategories();
+}, [BASE, type, category]);
+ // if you want a single shared list, remove `type` from deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
