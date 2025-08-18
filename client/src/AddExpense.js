@@ -22,10 +22,10 @@ function AddExpense({ onAdd }) {
 
   const BASE = process.env.REACT_APP_API_BASE_URL;
 
-  // Fetch categories (global + user custom)
+  // Fetch categories for Expenses only
   useEffect(() => {
     const fetchCategories = async () => {
-      if (!BASE || !type) return;
+      if (!BASE || type !== 'Expense') return;
 
       try {
         const res = await axios.get(`${BASE}/api/categories`, {
@@ -33,7 +33,7 @@ function AddExpense({ onAdd }) {
         });
 
         const filtered = res.data
-          .filter(c => c.kind === type)
+          .filter(c => c.kind === 'Expense')
           .map(c => c.name);
 
         const unique = Array.from(new Set(filtered)).sort((a, b) => a.localeCompare(b));
@@ -49,7 +49,7 @@ function AddExpense({ onAdd }) {
     fetchCategories();
   }, [BASE, type]);
 
-  // Set first category automatically
+  // Automatically select first category
   useEffect(() => {
     if (!category && categories.length > 0) {
       setCategory(categories[0]);
@@ -60,8 +60,8 @@ function AddExpense({ onAdd }) {
     e.preventDefault();
     let finalCategory = category;
 
-    // Handle custom category for both Expense and Income
-    if (category === 'Other') {
+    // Handle custom category for Expenses
+    if (type === 'Expense' && category === 'Other') {
       const name = customCategory.trim();
       if (!name) {
         setStatus('error');
@@ -72,10 +72,9 @@ function AddExpense({ onAdd }) {
       try {
         await axios.post(
           `${BASE}/api/categories`,
-          { name, kind: type || 'Expense' },
+          { name, kind: 'Expense' },
           { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
         );
-
 
         // Update dropdown immediately
         setCategories(prev => {
@@ -98,7 +97,7 @@ function AddExpense({ onAdd }) {
       const entry = {
         title,
         amount: parseFloat(amount),
-        category: finalCategory,
+        category: type === 'Expense' ? finalCategory : 'Income',
         type,
         date: new Date(),
       };
@@ -184,35 +183,37 @@ function AddExpense({ onAdd }) {
               />
             </div>
 
-            {/* Category */}
-            <div className="space-y-2">
-              {fetchError && (
-                <p className="text-red-600 dark:text-red-400 text-sm">{fetchError}</p>
-              )}
-              <div className="relative">
-                <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
-                >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
+            {/* Category only for Expense */}
+            {type === 'Expense' && (
+              <div className="space-y-2">
+                {fetchError && (
+                  <p className="text-red-600 dark:text-red-400 text-sm">{fetchError}</p>
+                )}
+                <div className="relative">
+                  <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Custom category input */}
-              {category === 'Other' && (
-                <input
-                  type="text"
-                  placeholder="Enter custom category"
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
-                  className="w-full pl-3 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
-                />
-              )}
-            </div>
+                {/* Custom category input */}
+                {category === 'Other' && (
+                  <input
+                    type="text"
+                    placeholder="Enter custom category"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className="w-full pl-3 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
+                  />
+                )}
+              </div>
+            )}
           </>
         )}
 

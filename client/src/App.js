@@ -85,15 +85,29 @@ function App() {
     setTimeout(() => setLogoutMessage(''), 3000);
   };
 
-  const handleDarkModeToggle = () => {
+  const handleDarkModeToggle = async () => {
+  try {
     const isDark = document.documentElement.classList.toggle('dark');
     const newTheme = isDark ? 'dark' : 'light';
-    const user = JSON.parse(localStorage.getItem('user'));
-    const userId = user?._id || user?.id;
-    if (!userId) return;
+
+    // Update local storage
+    const user = JSON.parse(localStorage.getItem('user')) || {};
     localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
-    axios.put(`${BASE}/api/auth/theme`, { userId, theme: newTheme }).catch(console.error);
-  };
+
+    // Send update to backend
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    await axios.put(
+      `${BASE}/api/auth/theme`,
+      { theme: newTheme },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+  } catch (err) {
+    console.error('Failed to update theme:', err);
+  }
+};
+
 
   const renderMainApp = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 text-black dark:text-white p-6">

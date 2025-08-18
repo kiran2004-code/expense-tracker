@@ -12,7 +12,7 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.userId };
+    req.userId = decoded.userId; // consistent userId
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
@@ -48,35 +48,41 @@ router.post('/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.status(200).json({ token, user: { id: user._id, name: user.name, email: user.email, theme: user.theme } });
+    res.status(200).json({
+      token,
+      user: { id: user._id, name: user.name, email: user.email, theme: user.theme || 'light' }
+    });
   } catch (err) {
     console.error('Login Error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
+// Update user theme
 router.put('/theme', authMiddleware, async (req, res) => {
-  try {
-    const { theme } = req.body;
-    const userId = req.user.id; // get userId from verified token
-    if (!theme) return res.status(400).json({ message: 'Theme is required' });
+  const { theme } = req.body; // theme = 'dark' or 'light'
+  if (!theme) return res.status(400).json({ message: 'Theme is required' });
 
-    await User.findByIdAndUpdate(userId, { theme });
-    res.json({ message: 'Theme updated' });
+  try {
+    const user = await User.findById(req.userId); // userId comes from token
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.theme = theme;
+    await user.save();
+
+    res.json({ message: 'Theme updated successfully', theme });
   } catch (err) {
     console.error('Theme update error:', err);
     res.status(500).json({ message: 'Failed to update theme' });
   }
 });
 
-
-
-// Get user info by token
+// Get user info
 router.get('/user', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.userId).select('-password'); // exclude password
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ name: user.name, email: user.email, theme: user.theme || 'light' });
+    res.json({ id: user._id, name: user.name, email: user.email, theme: user.theme || 'light' });
   } catch (err) {
     console.error('Get user error:', err);
     res.status(500).json({ message: 'Server error' });
