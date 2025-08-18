@@ -8,8 +8,9 @@ router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const categories = await Category.find({
-      $or: [{ scope: 'global' }, { scope: 'custom', userId }],
+    $or: [{ scope: 'global' }, { scope: 'custom', userId }],
     }).sort({ name: 1 });
+
     res.json(categories);
   } catch (err) {
     res.status(500).json({ error: err.message });
