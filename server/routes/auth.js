@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const authMiddleware = require('./authMiddleware');
 
 // JWT Auth Middleware
 const authMiddleware = (req, res, next) => {
@@ -55,14 +56,16 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// PUT /api/auth/theme
-// Updated theme route
 router.put('/theme', authMiddleware, async (req, res) => {
-  const { theme } = req.body;
   try {
-    await User.findByIdAndUpdate(req.user.id, { theme });
+    const { theme } = req.body;
+    const userId = req.user.id; // get userId from verified token
+    if (!theme) return res.status(400).json({ message: 'Theme is required' });
+
+    await User.findByIdAndUpdate(userId, { theme });
     res.json({ message: 'Theme updated' });
   } catch (err) {
+    console.error('Theme update error:', err);
     res.status(500).json({ message: 'Failed to update theme' });
   }
 });

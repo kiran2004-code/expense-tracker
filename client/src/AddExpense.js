@@ -10,40 +10,39 @@ import {
 import SummaryCards from './SummaryCards';
 
 function AddExpense({ onAdd }) {
-  const [type, setType] = useState('');                // 'Expense' or 'Income'
+  const [type, setType] = useState(''); // 'Expense' or 'Income'
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');        // selected category name
-  const [categories, setCategories] = useState([]);    // array of names
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState([]);
   const [customCategory, setCustomCategory] = useState('');
   const [status, setStatus] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(false); // For SummaryCards refresh
-  const [fetchError, setFetchError] = useState('');
+  const [fetchError, setFetchError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(false);
 
   const BASE = process.env.REACT_APP_API_BASE_URL;
 
-  // Fetch categories from backend
+  // Fetch categories (global + user custom)
   useEffect(() => {
-    if (!BASE || !type) return;
-
     const fetchCategories = async () => {
+      if (!BASE || !type) return;
+
       try {
         const res = await axios.get(`${BASE}/api/categories`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
 
-        // Filter by type (Expense/Income)
         const filtered = res.data
           .filter(c => c.kind === type)
           .map(c => c.name);
 
         const unique = Array.from(new Set(filtered)).sort((a, b) => a.localeCompare(b));
         setCategories([...unique, 'Other']);
-        setFetchError('');
+        setFetchError(null);
       } catch (err) {
         console.error('Failed to fetch categories', err);
-        setFetchError('Failed to load categories. Try refreshing.');
-        setCategories(['Other']); // fallback
+        setFetchError('Failed to load categories. Please try again.');
+        setCategories(['Other']);
       }
     };
 
@@ -59,10 +58,9 @@ function AddExpense({ onAdd }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     let finalCategory = category;
 
-    // If "Other" selected, create a custom category for this type
+    // Handle custom category for both Expense and Income
     if (category === 'Other') {
       const name = customCategory.trim();
       if (!name) {
@@ -72,7 +70,7 @@ function AddExpense({ onAdd }) {
       }
 
       try {
-        await axios.post(
+        const res = await axios.post(
           `${BASE}/api/categories`,
           { name, kind: type },
           { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
@@ -187,6 +185,9 @@ function AddExpense({ onAdd }) {
 
             {/* Category */}
             <div className="space-y-2">
+              {fetchError && (
+                <p className="text-red-600 dark:text-red-400 text-sm">{fetchError}</p>
+              )}
               <div className="relative">
                 <Tag className="absolute top-3 left-3 text-gray-400" size={18} />
                 <select
@@ -200,6 +201,7 @@ function AddExpense({ onAdd }) {
                 </select>
               </div>
 
+              {/* Custom category input */}
               {category === 'Other' && (
                 <input
                   type="text"
@@ -209,8 +211,6 @@ function AddExpense({ onAdd }) {
                   className="w-full pl-3 pr-4 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md focus:outline-blue-400"
                 />
               )}
-
-              {fetchError && <p className="text-red-500 text-sm">{fetchError}</p>}
             </div>
           </>
         )}
