@@ -70,11 +70,12 @@ function AddExpense({ onAdd }) {
       }
 
       try {
-        const res = await axios.post(
+        await axios.post(
           `${BASE}/api/categories`,
-          { name, kind: type },
+          { name, kind: type || 'Expense' },
           { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
         );
+
 
         // Update dropdown immediately
         setCategories(prev => {
