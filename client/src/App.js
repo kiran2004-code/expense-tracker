@@ -97,18 +97,18 @@ function App() {
     setCurrentTheme('light');
   };
 
+  // Safe theme toggle
   const handleDarkModeToggle = async () => {
-    const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user')) || {};
-    const isDark = document.documentElement.classList.toggle('dark');
-    const newTheme = isDark ? 'dark' : 'light';
-
-    setCurrentTheme(newTheme);
-    localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
-
-    if (!token) return; // skip backend update if not logged in
+    const token = localStorage.getItem('token');
+    if (!token || !user) return;
 
     try {
+      const isDark = document.documentElement.classList.toggle('dark');
+      const newTheme = isDark ? 'dark' : 'light';
+
+      localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
+
       await axios.put(
         `${BASE}/api/auth/theme`,
         { theme: newTheme },
@@ -118,6 +118,7 @@ function App() {
       console.error('Failed to update theme:', err.response?.data || err.message);
     }
   };
+
 
   const renderMainApp = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 text-black dark:text-white p-6">

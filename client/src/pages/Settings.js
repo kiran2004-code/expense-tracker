@@ -1,9 +1,22 @@
 // src/pages/Settings.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, SunMoon, Sun, Moon } from 'lucide-react';
 
-function Settings({ onBack, onToggleDarkMode, currentTheme }) {
-  const isDark = currentTheme === 'dark';
+function Settings({ onBack, onToggleDarkMode }) {
+  const [isDark, setIsDark] = useState(false);
+
+  // Initialize local toggle state based on current document theme
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  const handleToggle = () => {
+    // Toggle theme in App.js
+    onToggleDarkMode();
+
+    // Immediately sync local toggle state with the actual theme
+    setIsDark(document.documentElement.classList.contains('dark'));
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-md p-6 mt-6 max-w-md mx-auto">
@@ -27,7 +40,7 @@ function Settings({ onBack, onToggleDarkMode, currentTheme }) {
         </span>
 
         <div
-          onClick={onToggleDarkMode}
+          onClick={handleToggle}
           className="w-14 h-8 flex items-center bg-gray-300 dark:bg-gray-600 rounded-full px-1 cursor-pointer transition-colors duration-300"
         >
           <div
