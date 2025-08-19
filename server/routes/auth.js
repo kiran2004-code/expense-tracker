@@ -3,11 +3,12 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const authMiddleware = require("../middleware/auth"); // ✅ use centralized middleware
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
-// Register
+// ✅ Register
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -41,7 +42,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// Login
+// ✅ Login
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -67,24 +68,10 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Middleware to verify token
-const verifyToken = (req, res, next) => {
-  const token = req.header("x-auth-token");
-  if (!token) return res.status(401).json({ message: "No token, authorization denied" });
-
+// ✅ Get user details (protected)
+router.get("/user", authMiddleware, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // contains user id
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Token is not valid" });
-  }
-};
-
-// Get user details
-router.get("/user", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await User.findById(req.userId).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
@@ -93,11 +80,11 @@ router.get("/user", verifyToken, async (req, res) => {
   }
 });
 
-// Update theme
-router.put("/theme", verifyToken, async (req, res) => {
+// ✅ Update theme (protected)
+router.put("/theme", authMiddleware, async (req, res) => {
   try {
     const { theme } = req.body;
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.theme = theme;

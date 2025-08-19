@@ -7,13 +7,13 @@ const ExpenseSchema = new mongoose.Schema({
   category: {
     type: String,
     required: function () {
-      return this.type === 'Expense';
+      return this.type === 'Expense'; // ✅ only required for Expense
     },
   },
   type: {
     type: String,
     enum: ['Income', 'Expense'],
-    default: 'Expense'
+    required: true, // ✅ force user to select type
   },
   date: { type: Date, default: Date.now },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
