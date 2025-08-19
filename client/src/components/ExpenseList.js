@@ -1,46 +1,45 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
-import { Trash2, ClipboardList } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from "react";
+import API from "../utils/axios"; // ✅ use custom axios instance
+import { Trash2, ClipboardList } from "lucide-react";
 
 function ExpenseList() {
   const [expenses, setExpenses] = useState([]);
   const [filteredExpenses, setFilteredExpenses] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedMonth, setSelectedMonth] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
 
-  const BASE = process.env.REACT_APP_API_BASE_URL;
-
+  // ✅ Load all expenses
   const loadExpenses = async () => {
     try {
-      const BASE = process.env.REACT_APP_API_BASE_URL;
-      const res = await axios.get(`${BASE}/api/expenses`, {headers: { Authorization: `Bearer ${localStorage.getItem('token')}`}});
+      const res = await API.get("/expenses"); // no headers needed
       setExpenses(res.data);
     } catch (err) {
-      console.error('Failed to load expenses', err);
+      console.error("Failed to load expenses", err);
+    }
+  };
+
+  // ✅ Delete expense
+  const handleDelete = async (id) => {
+    try {
+      await API.delete(`/expenses/${id}`);
+      loadExpenses();
+    } catch (err) {
+      console.error("Failed to delete expense", err);
     }
   };
 
   const filterExpenses = useCallback(() => {
     let filtered = [...expenses];
-    if (selectedCategory !== 'All') {
+    if (selectedCategory !== "All") {
       filtered = filtered.filter((exp) => exp.category === selectedCategory);
     }
-    if (selectedMonth !== 'All') {
+    if (selectedMonth !== "All") {
       filtered = filtered.filter(
         (exp) => new Date(exp.date).getMonth() + 1 === parseInt(selectedMonth)
       );
     }
     setFilteredExpenses(filtered);
   }, [expenses, selectedCategory, selectedMonth]);
-
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${BASE}/api/expenses/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}`}});
-      loadExpenses();
-    } catch (err) {
-      console.error('Failed to delete expense', err);
-    }
-  };
 
   useEffect(() => {
     loadExpenses();
@@ -58,6 +57,7 @@ function ExpenseList() {
         <ClipboardList size={20} /> All Expenses
       </h2>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
         <select
           value={selectedCategory}
@@ -66,7 +66,9 @@ function ExpenseList() {
         >
           <option value="All">All Categories</option>
           {categories.map((cat, idx) => (
-            <option key={idx} value={cat}>{cat}</option>
+            <option key={idx} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
 
@@ -78,12 +80,13 @@ function ExpenseList() {
           <option value="All">All Months</option>
           {[...Array(12)].map((_, i) => (
             <option key={i} value={i + 1}>
-              {new Date(0, i).toLocaleString('default', { month: 'long' })}
+              {new Date(0, i).toLocaleString("default", { month: "long" })}
             </option>
           ))}
         </select>
       </div>
 
+      {/* Expense List */}
       {filteredExpenses.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400">
           No expenses found for selected filters.

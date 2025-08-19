@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import API from "../utils/axios"; // ✅ use your axios instance
 import {
   Tag,
   DollarSign,
@@ -20,18 +20,13 @@ function AddExpense({ onAdd }) {
   const [fetchError, setFetchError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(false);
 
-  const BASE = process.env.REACT_APP_API_BASE_URL;
-
   // ✅ Fetch categories (only for Expense)
   useEffect(() => {
     const fetchCategories = async () => {
-      if (!BASE || type !== "Expense") return;
+      if (type !== "Expense") return;
 
       try {
-        const res = await axios.get(`${BASE}/api/categories`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
-
+        const res = await API.get("/categories"); // ✅ use API
         const filtered = res.data
           .filter((c) => c.kind === "Expense")
           .map((c) => c.name);
@@ -49,7 +44,7 @@ function AddExpense({ onAdd }) {
     };
 
     fetchCategories();
-  }, [BASE, type]);
+  }, [type]);
 
   // ✅ Auto-select first category when Expense type chosen
   useEffect(() => {
@@ -73,13 +68,7 @@ function AddExpense({ onAdd }) {
       }
 
       try {
-        await axios.post(
-          `${BASE}/api/categories`,
-          { name, kind: "Expense" },
-          {
-            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-          }
-        );
+        await API.post("/categories", { name, kind: "Expense" }); // ✅ use API
 
         // Update dropdown with new category
         setCategories((prev) => {
@@ -108,9 +97,7 @@ function AddExpense({ onAdd }) {
         userId: localStorage.getItem("userId"), // ✅ Required
       };
 
-      await axios.post(`${BASE}/api/expenses`, entry, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      await API.post("/expenses", entry); // ✅ use API
 
       // ✅ Reset form
       setTitle("");

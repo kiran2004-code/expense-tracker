@@ -1,15 +1,15 @@
 // src/App.js
 import React, { useEffect, useState } from 'react';
-import AddExpense from './AddExpense';
-import ExpenseList from './ExpenseList';
-import ExpenseChart from './ExpenseChart';
-import ExpenseCalendar from './ExpenseCalendar';
-import SummaryCards from './SummaryCards';
+import AddExpense from './components/AddExpense';
+import ExpenseList from './components/ExpenseList';
+import ExpenseChart from './components/ExpenseChart';
+import ExpenseCalendar from './components/ExpenseCalendar';
+import SummaryCards from './components/SummaryCards';
 import LogoOverlay from './LogoOverlay';
 import AuthScreen from './pages/AuthScreen';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-import TodayEntries from './TodayEntries';
+import TodayEntries from './components/TodayEntries';
 import {
   ClipboardList,
   CalendarDays,
@@ -209,7 +209,13 @@ function App() {
                   if (data?.token) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    document.documentElement.classList.toggle('dark', data.user.theme === 'dark');
+                    
+                    if (data.user.theme === 'dark') {
+                      document.documentElement.classList.add('dark');
+                    } else {
+                      document.documentElement.classList.remove('dark');
+                    }
+
                     setIsAuthenticated(true);
                   }
                 }}

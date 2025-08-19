@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css'; // base calendar styles
-import axios from 'axios';
-import { format } from 'date-fns';
-import { CalendarDays } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css"; // base calendar styles
+import API from "../utils/axios";
+import { format } from "date-fns";
+import { CalendarDays } from "lucide-react";
 
 // Dynamic style injection for calendar theme
 function loadCalendarTheme() {
-  const existing = document.getElementById('calendar-theme');
+  const existing = document.getElementById("calendar-theme");
   if (existing) existing.remove();
 
-  const style = document.createElement('link');
-  style.rel = 'stylesheet';
-  style.type = 'text/css';
-  style.id = 'calendar-theme';
+  const style = document.createElement("link");
+  style.rel = "stylesheet";
+  style.type = "text/css";
+  style.id = "calendar-theme";
 
-  const isDark = document.documentElement.classList.contains('dark');
-  style.href = isDark ? '/calendar-dark.css' : '/calendar-light.css';
+  const isDark = document.documentElement.classList.contains("dark");
+  style.href = isDark ? "/calendar-dark.css" : "/calendar-light.css";
 
   document.head.appendChild(style);
 }
@@ -34,20 +34,20 @@ function ExpenseCalendar() {
     const observer = new MutationObserver(() => loadCalendarTheme());
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ["class"],
     });
 
     return () => observer.disconnect();
   }, []);
 
+  // ✅ Use shared API instead of raw axios
   useEffect(() => {
     const fetchExpenses = async () => {
       try {
-        const BASE = process.env.REACT_APP_API_BASE_URL;
-        const res = await axios.get(`${BASE}/api/expenses`, {headers: { Authorization: `Bearer ${localStorage.getItem('token')}`}});
+        const res = await API.get("/expenses");
         setExpenses(res.data);
       } catch (err) {
-        console.error('Error fetching expenses', err);
+        console.error("Error fetching expenses", err);
       }
     };
 
@@ -55,9 +55,9 @@ function ExpenseCalendar() {
   }, []);
 
   useEffect(() => {
-    const selectedDate = format(value, 'yyyy-MM-dd');
+    const selectedDate = format(value, "yyyy-MM-dd");
     const matched = expenses.filter(
-      (exp) => format(new Date(exp.date), 'yyyy-MM-dd') === selectedDate
+      (exp) => format(new Date(exp.date), "yyyy-MM-dd") === selectedDate
     );
     setFiltered(matched);
   }, [value, expenses]);
@@ -83,7 +83,7 @@ function ExpenseCalendar() {
         {/* Results */}
         <div className="flex-1">
           <h3 className="text-md font-medium mb-2">
-            Entries on {format(value, 'dd MMMM yyyy')}
+            Entries on {format(value, "dd MMMM yyyy")}
           </h3>
 
           {filtered.length === 0 ? (
@@ -103,9 +103,9 @@ function ExpenseCalendar() {
                     </span>
                     <span
                       className={`text-sm font-medium ${
-                        exp.type === 'Income'
-                          ? 'text-green-600'
-                          : 'text-red-600'
+                        exp.type === "Income"
+                          ? "text-green-600"
+                          : "text-red-600"
                       }`}
                     >
                       {exp.type}
