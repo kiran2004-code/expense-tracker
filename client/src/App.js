@@ -39,27 +39,30 @@ function App() {
   const [logoutMessage, setLogoutMessage] = useState('');
   const [themeLoaded, setThemeLoaded] = useState(false);
 
+  // Load theme safely on app start
   useEffect(() => {
-    const fetchUserTheme = async () => {
+    const initTheme = async () => {
       const token = localStorage.getItem('token');
-      if (!token) return setThemeLoaded(true);
+      const storedUser = JSON.parse(localStorage.getItem('user')) || {};
+      if (!token || !storedUser) {
+        setThemeLoaded(true);
+        return;
+      }
 
       try {
         const res = await axios.get(`${BASE}/api/auth/user`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const { theme } = res.data;
+        const theme = res.data.theme || 'light';
         document.documentElement.classList.toggle('dark', theme === 'dark');
-        const storedUser = JSON.parse(localStorage.getItem('user')) || {};
-        storedUser.theme = theme;
-        localStorage.setItem('user', JSON.stringify(storedUser));
+        localStorage.setItem('user', JSON.stringify({ ...storedUser, theme }));
       } catch (err) {
         console.error('Failed to fetch user theme:', err);
       } finally {
         setThemeLoaded(true);
       }
     };
-    fetchUserTheme();
+    initTheme();
   }, []);
 
   useEffect(() => {
@@ -85,33 +88,34 @@ function App() {
     setTimeout(() => setLogoutMessage(''), 3000);
   };
 
+  // Safe theme toggle
   const handleDarkModeToggle = async () => {
-  try {
-    const isDark = document.documentElement.classList.toggle('dark');
-    const newTheme = isDark ? 'dark' : 'light';
-
-    // Update local storage
     const user = JSON.parse(localStorage.getItem('user')) || {};
-    localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
-
-    // Send update to backend
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token || !user) return;
 
-    await axios.put(
-      `${BASE}/api/auth/theme`,
-      { theme: newTheme },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-  } catch (err) {
-    console.error('Failed to update theme:', err);
-  }
-};
+    try {
+      const isDark = document.documentElement.classList.toggle('dark');
+      const newTheme = isDark ? 'dark' : 'light';
 
+      // Update local storage
+      localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
+
+      // Update backend
+      await axios.put(
+        `${BASE}/api/auth/theme`,
+        { theme: newTheme },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Failed to update theme:', err.response?.data || err.message);
+    }
+  };
 
   const renderMainApp = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 text-black dark:text-white p-6">
       <div className="max-w-4xl mx-auto space-y-8">
+        {/* Navbar */}
         {!['profile', 'settings'].includes(view) && (
           <>
             <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 shadow-md p-4 flex justify-center flex-wrap gap-6 border-b border-gray-300 dark:border-gray-700 rounded-lg">
@@ -172,6 +176,7 @@ function App() {
                 </Menu.Items>
               </Menu>
             </div>
+            {/* Home view */}
             {view === 'home' && <><SummaryCards refresh={refreshSummary} /><TodayEntries /></>}
           </>
         )}
@@ -210,11 +215,7 @@ function App() {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     
-                    if (data.user.theme === 'dark') {
-                      document.documentElement.classList.add('dark');
-                    } else {
-                      document.documentElement.classList.remove('dark');
-                    }
+                    document.documentElement.classList.toggle('dark', data.user.theme === 'dark');
 
                     setIsAuthenticated(true);
                   }
