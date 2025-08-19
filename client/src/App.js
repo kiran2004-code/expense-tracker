@@ -99,23 +99,40 @@ function App() {
   // Safe dark mode toggle
   const handleDarkModeToggle = async () => {
     const user = JSON.parse(localStorage.getItem('user')) || {};
-    const token = localStorage.getItem('token');
+    let token = localStorage.getItem('token');
 
+    // Toggle theme locally
     const isDark = document.documentElement.classList.toggle('dark');
     const newTheme = isDark ? 'dark' : 'light';
-    setCurrentTheme(newTheme);
-    localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
 
+    // Update local storage immediately
+    localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
+    setCurrentTheme(newTheme);
+
+    // Only try backend if token exists
     if (!token) return;
 
     try {
-      await axios.put(`${BASE}/api/auth/theme`, { theme: newTheme }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Optional: refresh token logic if your backend supports it
+      await axios.put(
+        `${BASE}/api/auth/theme`,
+        { theme: newTheme },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
     } catch (err) {
-      console.error('Failed to update theme:', err.response?.data || err.message);
+      console.error('Failed to update theme on backend:', err.response?.data || err.message);
+
+      // If 401 Unauthorized, remove token & log out user safely
+      if (err.response?.status === 401) {
+        console.warn('Token invalid or expired. Logging out user.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        setView('auth');
+      }
     }
   };
+
 
   const renderMainApp = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 text-black dark:text-white p-6">

@@ -37,25 +37,21 @@ function AuthScreen({ onAuthSuccess }) {
 
       const res = await axios.post(`${BASE}${url}`, payload);
 
-      if (isLogin) {
-        if (res.data.token && res.data.user) {
-          localStorage.setItem('token', res.data.token);
-          localStorage.setItem('user', JSON.stringify(res.data.user));
+      if (res.data.token && res.data.user) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify({ ...res.data.user, theme: res.data.user.theme || 'light' }));
 
-          // ✅ Apply dark mode if user's preference is 'dark'
-          if (res.data.user.theme === 'dark') {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+        // Apply dark mode immediately
+        const theme = res.data.user.theme || 'light';
+        document.documentElement.classList.toggle('dark', theme === 'dark');
 
-          // Proceed to authenticated screen
-          setTimeout(() => {
-            onAuthSuccess && onAuthSuccess(res.data);
-          }, 100);
-        } else {
-          setError('❌ Invalid response from server');
-        }
+        // Notify App.js with the full data (including theme)
+        setTimeout(() => {
+          onAuthSuccess && onAuthSuccess({
+            token: res.data.token,
+            user: { ...res.data.user, theme }
+          });
+        }, 100);
       } else {
         setSuccess('✅ Registered successfully. Please log in.');
         setTimeout(() => {
@@ -64,6 +60,7 @@ function AuthScreen({ onAuthSuccess }) {
           setSuccess('');
         }, 1500);
       }
+
     } catch (err) {
       setError(`❌ ${err.response?.data?.message || 'Something went wrong'}`);
     } finally {
