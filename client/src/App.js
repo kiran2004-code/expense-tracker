@@ -101,23 +101,26 @@ function App() {
   const handleDarkModeToggle = async () => {
     const user = JSON.parse(localStorage.getItem('user')) || {};
     const token = localStorage.getItem('token');
-    if (!token || !user) return;
+
+    // toggle theme locally
+    const isDark = document.documentElement.classList.toggle('dark');
+    const newTheme = isDark ? 'dark' : 'light';
+
+    // update local storage
+    localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
+
+    // only try backend if logged in
+    if (!token) return;
 
     try {
-      const isDark = document.documentElement.classList.toggle('dark');
-      const newTheme = isDark ? 'dark' : 'light';
-
-      localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
-
-      await axios.put(
-        `${BASE}/api/auth/theme`,
-        { theme: newTheme },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.put(`${BASE}/api/auth/theme`, { theme: newTheme }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
     } catch (err) {
       console.error('Failed to update theme:', err.response?.data || err.message);
     }
   };
+
 
 
   const renderMainApp = () => (
