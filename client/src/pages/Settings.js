@@ -1,18 +1,9 @@
 // src/pages/Settings.js
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ArrowLeft, SunMoon, Sun, Moon } from 'lucide-react';
 
-function Settings({ onBack, onToggleDarkMode }) {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'));
-  }, []);
-
-  const handleToggle = () => {
-    onToggleDarkMode(); // call the App-level handler
-    setIsDark(prev => !prev); // update local toggle state
-  };
+function Settings({ onBack, onToggleDarkMode, currentTheme }) {
+  const isDark = currentTheme === 'dark';
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-md p-6 mt-6 max-w-md mx-auto">
@@ -36,7 +27,7 @@ function Settings({ onBack, onToggleDarkMode }) {
         </span>
 
         <div
-          onClick={handleToggle}
+          onClick={onToggleDarkMode}
           className="w-14 h-8 flex items-center bg-gray-300 dark:bg-gray-600 rounded-full px-1 cursor-pointer transition-colors duration-300"
         >
           <div
@@ -47,7 +38,6 @@ function Settings({ onBack, onToggleDarkMode }) {
         </div>
       </div>
 
-      {/* Label */}
       <p className="text-sm text-gray-500 dark:text-gray-300 mt-2">
         {isDark ? 'Dark Mode On' : 'Light Mode On'}
       </p>

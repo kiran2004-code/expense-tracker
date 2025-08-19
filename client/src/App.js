@@ -38,30 +38,35 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [logoutMessage, setLogoutMessage] = useState('');
   const [themeLoaded, setThemeLoaded] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState('light'); // 'light' or 'dark'
 
-  // Load theme safely on app start
+  // Initialize theme on app start
   useEffect(() => {
     const initTheme = async () => {
       const token = localStorage.getItem('token');
-      const storedUser = JSON.parse(localStorage.getItem('user')) || {};
-      if (!token || !storedUser) {
-        setThemeLoaded(true);
-        return;
+      let theme = 'light'; // default
+
+      if (token) {
+        try {
+          const res = await axios.get(`${BASE}/api/auth/user`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          theme = res.data.theme || 'light';
+          const storedUser = JSON.parse(localStorage.getItem('user')) || {};
+          localStorage.setItem('user', JSON.stringify({ ...storedUser, theme }));
+        } catch (err) {
+          console.error('Failed to fetch user theme:', err);
+        }
+      } else {
+        const storedUser = JSON.parse(localStorage.getItem('user')) || {};
+        theme = storedUser.theme || 'light';
       }
 
-      try {
-        const res = await axios.get(`${BASE}/api/auth/user`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const theme = res.data.theme || 'light';
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-        localStorage.setItem('user', JSON.stringify({ ...storedUser, theme }));
-      } catch (err) {
-        console.error('Failed to fetch user theme:', err);
-      } finally {
-        setThemeLoaded(true);
-      }
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      setCurrentTheme(theme);
+      setThemeLoaded(true);
     };
+
     initTheme();
   }, []);
 
@@ -86,22 +91,24 @@ function App() {
     setView('auth');
     setLogoutMessage('Logged out successfully');
     setTimeout(() => setLogoutMessage(''), 3000);
+
+    // Reset theme to light on logout
+    document.documentElement.classList.remove('dark');
+    setCurrentTheme('light');
   };
 
-  // Safe theme toggle
   const handleDarkModeToggle = async () => {
-    const user = JSON.parse(localStorage.getItem('user')) || {};
     const token = localStorage.getItem('token');
-    if (!token || !user) return;
+    const user = JSON.parse(localStorage.getItem('user')) || {};
+    const isDark = document.documentElement.classList.toggle('dark');
+    const newTheme = isDark ? 'dark' : 'light';
+
+    setCurrentTheme(newTheme);
+    localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
+
+    if (!token) return; // skip backend update if not logged in
 
     try {
-      const isDark = document.documentElement.classList.toggle('dark');
-      const newTheme = isDark ? 'dark' : 'light';
-
-      // Update local storage
-      localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
-
-      // Update backend
       await axios.put(
         `${BASE}/api/auth/theme`,
         { theme: newTheme },
@@ -176,16 +183,18 @@ function App() {
                 </Menu.Items>
               </Menu>
             </div>
+
             {/* Home view */}
             {view === 'home' && <><SummaryCards refresh={refreshSummary} /><TodayEntries /></>}
           </>
         )}
+
         {view === 'add' && (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-md p-6 space-y-6">
             <h1 className="text-2xl font-bold text-center text-blue-700 dark:text-blue-300">Add New Entry</h1>
             <AddExpense onAdd={(status) => {
               setAddStatus(status);
-              if (status === 'success') setRefreshSummary((prev) => !prev);
+              if (status === 'success') setRefreshSummary(prev => !prev);
               setTimeout(() => setAddStatus(null), 2000);
             }} />
           </div>
@@ -194,7 +203,13 @@ function App() {
         {view === 'calendar' && <ExpenseCalendar />}
         {view === 'report' && <ExpenseChart />}
         {view === 'profile' && <Profile onBack={() => setView(lastView)} />}
-        {view === 'settings' && <Settings onBack={() => setView(lastView)} onToggleDarkMode={handleDarkModeToggle} />}
+        {view === 'settings' && (
+          <Settings
+            onBack={() => setView(lastView)}
+            onToggleDarkMode={handleDarkModeToggle}
+            currentTheme={currentTheme} // sync toggle
+          />
+        )}
       </div>
     </div>
   );
@@ -213,10 +228,10 @@ function App() {
                 onAuthSuccess={(data) => {
                   if (data?.token) {
                     localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('user', JSON.stringify({ ...data.user, theme: data.user.theme || 'light' }));
                     
                     document.documentElement.classList.toggle('dark', data.user.theme === 'dark');
-
+                    setCurrentTheme(data.user.theme || 'light');
                     setIsAuthenticated(true);
                   }
                 }}
