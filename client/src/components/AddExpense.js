@@ -22,29 +22,43 @@ function AddExpense({ onAdd }) {
 
   // ✅ Fetch categories (only for Expense)
   useEffect(() => {
-    const fetchCategories = async () => {
-      if (type !== "Expense") return;
+  const fetchCategories = async () => {
+    if (type !== "Expense") return;
 
-      try {
-        const res = await API.get("/categories"); // ✅ use API
-        const filtered = res.data
-          .filter((c) => c.kind === "Expense")
-          .map((c) => c.name);
+    try {
+      const res = await API.get("/categories"); // returns user-specific categories
+      const currentUserId = localStorage.getItem("userId");
 
-        const unique = Array.from(new Set(filtered)).sort((a, b) =>
-          a.localeCompare(b)
-        );
-        setCategories([...unique, "Other"]);
-        setFetchError(null);
-      } catch (err) {
-        console.error("❌ Failed to fetch categories", err);
-        setFetchError("Failed to load categories. Please try again.");
-        setCategories(["Other"]);
-      }
-    };
+      // Filter for Expense type only
+      const expenseCategories = res.data.filter(
+        (c) => c.kind === "Expense"
+      );
 
-    fetchCategories();
-  }, [type]);
+      // Include global categories
+      const globalCategories = expenseCategories.filter(
+        (c) => c.scope === "global"
+      );
+      const customCategories = expenseCategories.filter(
+        (c) => c.scope === "custom" && c.userId === currentUserId
+      );
+
+      const names = [...globalCategories, ...customCategories].map(c => c.name);
+
+      const unique = Array.from(new Set(names)).sort((a, b) =>
+        a.localeCompare(b)
+      );
+      setCategories([...unique, "Other"]);
+      setFetchError(null);
+    } catch (err) {
+      console.error("❌ Failed to fetch categories", err);
+      setFetchError("Failed to load categories. Please try again.");
+      setCategories(["Other"]);
+    }
+  };
+
+  fetchCategories();
+}, [type]);
+
 
   // ✅ Auto-select first category when Expense type chosen
   useEffect(() => {
@@ -68,7 +82,13 @@ function AddExpense({ onAdd }) {
       }
 
       try {
-        await API.post("/categories", { name, kind: "Expense" }); // ✅ use API
+        await API.post("/categories", { 
+          name, 
+          kind: "Expense", 
+          scope: "custom", 
+          userId: localStorage.getItem("userId")
+        });
+ // ✅ use API
 
         // Update dropdown with new category
         setCategories((prev) => {
